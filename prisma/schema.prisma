@@ -1,0 +1,57 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                 String             @id @default(uuid())
+  username           String             @unique
+  email              String             @unique
+  password           String
+  role               Role               @default(USER)
+  ownedConversations Conversation[]     @relation("GroupOwner")
+  conversations      ConversationUser[]
+  messages           Message[]
+}
+
+model Conversation {
+  id        String             @id @default(uuid())
+  name      String?
+  isGroup   Boolean            @default(false)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  ownerId   String?
+  owner     User?              @relation("GroupOwner", fields: [ownerId], references: [id])
+  users     ConversationUser[]
+  messages  Message[]
+}
+
+model ConversationUser {
+  id             String       @id @default(uuid())
+  conversationId String
+  userId         String
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  user           User         @relation(fields: [userId], references: [id])
+
+  @@unique([conversationId, userId])
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  text           String
+  senderId       String
+  conversationId String
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  sender         User         @relation(fields: [senderId], references: [id])
+}
+
+enum Role {
+  USER
+  ADMIN
+}
