@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsArray } from 'class-validator';
+import { IsString, IsNotEmpty, IsArray, IsOptional } from 'class-validator';
 
 export class CreatePrivateConversationDto {
     @ApiProperty({
@@ -44,4 +44,13 @@ export class CreateGroupConversationDto {
     @IsString()
     @IsNotEmpty()
     ownerId: string;
+
+    @ApiProperty({
+        description: 'URL of the group icon',
+        example: 'https://...',
+        required: false
+    })
+    @IsString()
+    @IsOptional()
+    iconUrl?: string;
 }

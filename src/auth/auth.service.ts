@@ -44,12 +44,12 @@ export class AuthService {
     // const user = await this.prismaService.user.findUnique({
     //   where: { email: dto.email },
     // });
-    
-     const data  = await this.prismaService.$queryRaw`
+
+    const data = await this.prismaService.$queryRaw`
       select * from "User" where email = ${dto.email}`
 
-      const user= data[0];
-     
+    const user = data[0];
+
     if (!user) {
       throw new NotFoundException('User not found'); // 404
     }
@@ -73,6 +73,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         username: user.username,
+        avatarUrl: user.avatarUrl,
         role: user.role,
       },
       tokens,
@@ -94,4 +95,63 @@ export class AuthService {
 
     return { accessToken, refreshToken };
   }
+
+  async validateOAuthUser(profile: any) {
+    const { email, username, avatarUrl, provider, providerId } = profile;
+
+    // Check if user exists by email
+    let user = await this.prismaService.user.findUnique({
+      where: { email },
+    });
+
+    // If user doesn't exist, create new user
+    if (!user) {
+      // Generate unique username if needed
+      let finalUsername = username;
+      let counter = 1;
+
+      while (await this.prismaService.user.findUnique({ where: { username: finalUsername } })) {
+        finalUsername = `${username}${counter}`;
+        counter++;
+      }
+
+      user = await this.prismaService.user.create({
+        data: {
+          email,
+          username: finalUsername,
+          avatarUrl,
+          provider,
+          providerId,
+          // No password needed for OAuth users
+        },
+      });
+    } else {
+      // Update avatar and provider info if changed
+      if (user.avatarUrl !== avatarUrl || user.provider !== provider) {
+        user = await this.prismaService.user.update({
+          where: { id: user.id },
+          data: {
+            avatarUrl,
+            provider,
+            providerId,
+          },
+        });
+      }
+    }
+
+    // Generate JWT token
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        avatarUrl: user.avatarUrl,
+        role: user.role,
+      },
+      tokens
+    };
+  }
+
 }

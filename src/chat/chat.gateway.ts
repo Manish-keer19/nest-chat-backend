@@ -35,10 +35,12 @@ export class ChatGateway {
       conversationId: string;
       senderId: string;
       text: string;
+      attachments?: any[];
+      replyToId?: string;
     },
     @ConnectedSocket() client: Socket,
   ) {
-    const { conversationId, text, senderId } = data;
+    const { conversationId, text, senderId, attachments, replyToId } = data;
 
     // Make sure user is actually in conversation
     const isAllowed = await this.chatService.isUserInConversation(
@@ -55,6 +57,8 @@ export class ChatGateway {
       conversationId,
       senderId,
       text,
+      attachments,
+      replyToId,
     );
 
     // Broadcast to all clients in that conversation room
@@ -149,15 +153,16 @@ export class ChatGateway {
 
   @SubscribeMessage('typing')
   handleTyping(
-    @MessageBody() data: { conversationId: string; userId: string; username: string },
+    @MessageBody() data: { conversationId: string; userId: string; username: string; avatarUrl?: string },
     @ConnectedSocket() client: Socket,
   ) {
-    const { conversationId, userId, username } = data;
+    const { conversationId, userId, username, avatarUrl } = data;
 
     // Broadcast to others in conversation (not to self)
     client.to(conversationId).emit('user-typing', {
       userId,
       username,
+      avatarUrl,
       conversationId,
     });
   }

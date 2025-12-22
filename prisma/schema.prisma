@@ -12,10 +12,12 @@ model User {
   id                String             @id @default(uuid())
   username          String             @unique
   email             String             @unique
-  password          String
+  password          String? // Optional for OAuth users
   avatarUrl         String?
   bio               String?
   role              Role               @default(USER)
+  provider          AuthProvider?      @default(LOCAL) // OAuth provider
+  providerId        String? // OAuth provider user ID
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   deletedAt         DateTime?
@@ -32,6 +34,7 @@ model User {
 
   @@index([username])
   @@index([deletedAt])
+  @@index([providerId])
 }
 
 model Follow {
@@ -49,6 +52,7 @@ model Follow {
 model Conversation {
   id                String             @id @default(uuid())
   name              String?
+  iconUrl           String? // Group/conversation icon
   type              ConversationType   @default(PRIVATE)
   ownerId           String?
   isGroup           Boolean?
@@ -79,14 +83,18 @@ model Message {
   conversationId String
   senderId       String
   content        String?
+  replyToId      String?
   createdAt      DateTime      @default(now())
   deletedAt      DateTime?
   attachments    Attachment[]
   conversation   Conversation  @relation("ChatMessages", fields: [conversationId], references: [id])
   sender         User          @relation(fields: [senderId], references: [id])
+  replyTo        Message?      @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies        Message[]     @relation("MessageReplies")
   reads          MessageRead[]
 
   @@index([conversationId, createdAt])
+  @@index([replyToId])
 }
 
 model MessageRead {
@@ -189,6 +197,12 @@ model PostStats {
 enum Role {
   USER
   ADMIN
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+  GITHUB
 }
 
 enum ConversationType {

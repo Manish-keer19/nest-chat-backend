@@ -93,7 +93,7 @@ export class ChatService {
     // return data[0];
   }
 
-  async createGroup(name: string, userIds: string[], ownerId: string) {
+  async createGroup(name: string, userIds: string[], ownerId: string, iconUrl?: string) {
     // Validate that all users exist (including owner)
     const allUserIds = [...new Set([...userIds, ownerId])]; // Remove duplicates
     const users = await this.prisma.user.findMany({
@@ -114,6 +114,7 @@ export class ChatService {
         name,
         isGroup: true,
         ownerId,
+        iconUrl,
         users: {
           create: userIds.map((id) => ({ userId: id })),
         },
@@ -130,23 +131,62 @@ export class ChatService {
           select: {
             id: true,
             username: true,
+            avatarUrl: true,
           },
         },
+        attachments: true,
+        replyTo: {
+          include: {
+            sender: {
+              select: {
+                id: true,
+                username: true,
+              }
+            }
+          }
+        }
       },
     });
   }
 
   // Save message to DB
-  async saveMessage(conversationId: string, senderId: string, text: string) {
+  async saveMessage(conversationId: string, senderId: string, text: string, attachments?: any[], replyToId?: string) {
     console.log("text is in savemesage",)
     return await this.prisma.message.create({
       data: {
         content: text,
         senderId,
         conversationId,
+        replyToId,
+        attachments: attachments ? {
+          create: attachments.map(att => ({
+            url: att.url,
+            key: att.publicId, // Cloudinary publicId
+            type: att.resourceType === 'image' ? 'IMAGE' : att.resourceType === 'video' ? 'VIDEO' : 'FILE',
+            mimeType: att.mimeType,
+            size: att.size || 0
+          }))
+        } : undefined
       },
       include: {
-        sender: { select: { username: true } },
+        sender: {
+          select: {
+            id: true,
+            username: true,
+            avatarUrl: true
+          }
+        },
+        attachments: true,
+        replyTo: {
+          include: {
+            sender: {
+              select: {
+                id: true,
+                username: true
+              }
+            }
+          }
+        }
       },
     });
   }
@@ -179,7 +219,8 @@ export class ChatService {
               select: {
                 id: true,
                 username: true,
-                email: true
+                email: true,
+                avatarUrl: true
               }
             },
           },
@@ -241,8 +282,6 @@ export class ChatService {
     });
 
     if (!conversation) throw new Error('Conversation not found');
-    // If it's a group, only owner can add. If it's not a group, we probably can't add users anyway (private chat logic).
-    // Assuming assuming isGroup check is implicit or we want to enforce it.
     if (
       conversation.isGroup &&
       conversation.ownerId &&
@@ -259,6 +298,35 @@ export class ChatService {
     return await this.prisma.conversationUser.create({
       data: { conversationId, userId: userIdToAdd },
     });
+  }
+
+  async addUsersToGroup(
+    conversationId: string,
+    userIdsToAdd: string[],
+    requesterId: string,
+  ) {
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+    });
+
+    if (!conversation) throw new Error('Conversation not found');
+    if (
+      conversation.isGroup &&
+      conversation.ownerId &&
+      conversation.ownerId !== requesterId
+    ) {
+      throw new Error('Only the group owner can add users');
+    }
+
+    const operations = userIdsToAdd.map((userId) =>
+      this.prisma.conversationUser.upsert({
+        where: { conversationId_userId: { conversationId, userId } },
+        create: { conversationId, userId },
+        update: {}, // Do nothing if already exists
+      }),
+    );
+
+    return await this.prisma.$transaction(operations);
   }
 
   async removeUserFromGroup(
@@ -637,6 +705,84 @@ export class ChatService {
         deliveredAt: myReadStatus?.deliveredAt || null,
         readAt: myReadStatus?.readAt || null,
       };
+    });
+  }
+
+  /**
+   * Update group icon (only owner can update)
+   */
+  async updateGroupIcon(conversationId: string, userId: string, iconUrl: string) {
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+    });
+
+    if (!conversation) {
+      throw new Error('Conversation not found');
+    }
+
+    if (!conversation.isGroup) {
+      throw new Error('This is not a group conversation');
+    }
+
+    if (conversation.ownerId !== userId) {
+      throw new Error('Only the group owner can update the group icon');
+    }
+
+    return await this.prisma.conversation.update({
+      where: { id: conversationId },
+      data: { iconUrl },
+      include: {
+        users: {
+          select: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Update group name (only owner can update)
+   */
+  async updateGroupName(conversationId: string, userId: string, name: string) {
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+    });
+
+    if (!conversation) {
+      throw new Error('Conversation not found');
+    }
+
+    if (!conversation.isGroup) {
+      throw new Error('This is not a group conversation');
+    }
+
+    if (conversation.ownerId !== userId) {
+      throw new Error('Only the group owner can update the group name');
+    }
+
+    return await this.prisma.conversation.update({
+      where: { id: conversationId },
+      data: { name },
+      include: {
+        users: {
+          select: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+      },
     });
   }
 }

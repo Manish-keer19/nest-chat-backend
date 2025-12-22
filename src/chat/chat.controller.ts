@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody } from '@nestjs/swagger';
 import { ChatService } from './chat.service';
 import { CreatePrivateConversationDto, CreateGroupConversationDto } from './dto/create-conversation.dto';
@@ -60,7 +60,10 @@ export class ChatsController {
     status: 404,
     description: 'Conversation not found'
   })
-  async getConversationMessages(@Param('id') id: string) {
+  async getConversationMessages(@Param('id') id: string, @Query('userId') userId?: string) {
+    if (userId) {
+      return this.chatService.getMessagesWithReadStatus(id, userId);
+    }
     return this.chatService.getMessages(id);
   }
 
@@ -122,7 +125,7 @@ export class ChatsController {
     description: 'Invalid input data'
   })
   createGroup(@Body() body: CreateGroupConversationDto) {
-    return this.chatService.createGroup(body.name, body.userIds, body.ownerId);
+    return this.chatService.createGroup(body.name, body.userIds, body.ownerId, body.iconUrl);
   }
 
   @Get('user/:userId')
@@ -174,7 +177,7 @@ export class ChatsController {
     description: 'User not found'
   })
   getUserConversations(@Param('userId') userId: string) {
-    return this.chatService.getUserConversations(userId);
+    return this.chatService.getUserConversationsWithUnreadCounts(userId);
   }
 
   @Post('messages/:id/delete')
@@ -289,6 +292,33 @@ export class ChatsController {
   })
   addUser(@Param('id') id: string, @Body() body: AddUserToGroupDto) {
     return this.chatService.addUserToGroup(id, body.userId, body.requesterId);
+  }
+
+  @Post(':id/add-users')
+  @ApiOperation({
+    summary: 'Add multiple users to group',
+    description: 'Adds multiple users to an existing group conversation. Only the group owner can add users.'
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Conversation ID',
+    example: 'conv-uuid-456'
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        userIds: { type: 'array', items: { type: 'string' } },
+        requesterId: { type: 'string' }
+      }
+    }
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Users added to group successfully'
+  })
+  addUsers(@Param('id') id: string, @Body() body: { userIds: string[], requesterId: string }) {
+    return this.chatService.addUsersToGroup(id, body.userIds, body.requesterId);
   }
 
   @Post(':id/remove-user')
@@ -512,5 +542,69 @@ export class ChatsController {
   })
   getMessagesWithStatus(@Param('id') id: string, @Param('userId') userId: string) {
     return this.chatService.getMessagesWithReadStatus(id, userId);
+  }
+
+  // ==================== GROUP MANAGEMENT ENDPOINTS ====================
+
+  @Post(':id/update-icon')
+  @ApiOperation({
+    summary: 'Update group icon',
+    description: 'Updates the group conversation icon. Only the group owner can update the icon.'
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Conversation ID',
+    example: 'conv-uuid-456'
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        userId: { type: 'string', example: 'user-uuid-1' },
+        iconUrl: { type: 'string', example: 'https://cloudinary.com/group-icon.jpg' }
+      }
+    }
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Group icon updated successfully'
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Only group owner can update icon'
+  })
+  updateGroupIcon(@Param('id') id: string, @Body() body: { userId: string; iconUrl: string }) {
+    return this.chatService.updateGroupIcon(id, body.userId, body.iconUrl);
+  }
+
+  @Post(':id/update-name')
+  @ApiOperation({
+    summary: 'Update group name',
+    description: 'Updates the group conversation name. Only the group owner can update the name.'
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Conversation ID',
+    example: 'conv-uuid-456'
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        userId: { type: 'string', example: 'user-uuid-1' },
+        name: { type: 'string', example: 'Updated Team Name' }
+      }
+    }
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Group name updated successfully'
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Only group owner can update name'
+  })
+  updateGroupName(@Param('id') id: string, @Body() body: { userId: string; name: string }) {
+    return this.chatService.updateGroupName(id, body.userId, body.name);
   }
 }
