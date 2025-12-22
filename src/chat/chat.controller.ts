@@ -4,6 +4,7 @@ import { ChatService } from './chat.service';
 import { CreatePrivateConversationDto, CreateGroupConversationDto } from './dto/create-conversation.dto';
 import { DeleteMessageDto, EditMessageDto } from './dto/message.dto';
 import { AddUserToGroupDto, RemoveUserFromGroupDto, DeleteConversationDto } from './dto/group.dto';
+import { MarkMessageDeliveredDto, MarkMessageReadDto, MarkConversationReadDto, GetMessageStatusDto } from './dto/message-read.dto';
 
 @ApiTags('Conversations')
 @Controller('conversations')
@@ -366,5 +367,150 @@ export class ChatsController {
   })
   deleteConversation(@Param('id') id: string, @Body() body: DeleteConversationDto) {
     return this.chatService.deleteConversation(id, body.userId);
+  }
+
+  // ==================== MESSAGE READ/DELIVERY ENDPOINTS ====================
+
+  @Post('messages/:id/delivered')
+  @ApiOperation({
+    summary: 'Mark message as delivered',
+    description: 'Marks a message as delivered to a user\'s device'
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Message ID',
+    example: 'msg-uuid-1'
+  })
+  @ApiBody({ type: MarkMessageDeliveredDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Message marked as delivered successfully'
+  })
+  markMessageDelivered(@Param('id') id: string, @Body() body: MarkMessageDeliveredDto) {
+    return this.chatService.markMessageAsDelivered(id, body.userId);
+  }
+
+  @Post('messages/:id/read')
+  @ApiOperation({
+    summary: 'Mark message as read',
+    description: 'Marks a message as read by a user'
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Message ID',
+    example: 'msg-uuid-1'
+  })
+  @ApiBody({ type: MarkMessageReadDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Message marked as read successfully'
+  })
+  markMessageRead(@Param('id') id: string, @Body() body: MarkMessageReadDto) {
+    return this.chatService.markMessageAsRead(id, body.userId);
+  }
+
+  @Post(':id/mark-read')
+  @ApiOperation({
+    summary: 'Mark conversation as read',
+    description: 'Marks all messages in a conversation as read for a user'
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Conversation ID',
+    example: 'conv-uuid-123'
+  })
+  @ApiBody({ type: MarkConversationReadDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Conversation marked as read successfully'
+  })
+  markConversationRead(@Param('id') id: string, @Body() body: MarkConversationReadDto) {
+    return this.chatService.markConversationAsRead(id, body.userId);
+  }
+
+  @Get('messages/:id/status')
+  @ApiOperation({
+    summary: 'Get message read status',
+    description: 'Gets the read/delivery status of a message for all users in the conversation'
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Message ID',
+    example: 'msg-uuid-1'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns message status with read/delivery information for each user'
+  })
+  getMessageStatus(@Param('id') id: string) {
+    return this.chatService.getMessageStatus(id);
+  }
+
+  @Get(':id/unread-count/:userId')
+  @ApiOperation({
+    summary: 'Get unread message count',
+    description: 'Gets the number of unread messages in a conversation for a user'
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Conversation ID',
+    example: 'conv-uuid-123'
+  })
+  @ApiParam({
+    name: 'userId',
+    description: 'User ID',
+    example: 'user-uuid-1'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns unread message count',
+    schema: {
+      type: 'number',
+      example: 5
+    }
+  })
+  getUnreadCount(@Param('id') id: string, @Param('userId') userId: string) {
+    return this.chatService.getUnreadCount(id, userId);
+  }
+
+  @Get('user/:userId/with-unread')
+  @ApiOperation({
+    summary: 'Get user conversations with unread counts',
+    description: 'Retrieves all conversations for a user with unread message counts'
+  })
+  @ApiParam({
+    name: 'userId',
+    description: 'User ID',
+    example: 'user-uuid-1'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns array of conversations with unread counts'
+  })
+  getUserConversationsWithUnread(@Param('userId') userId: string) {
+    return this.chatService.getUserConversationsWithUnreadCounts(userId);
+  }
+
+  @Get(':id/messages-with-status/:userId')
+  @ApiOperation({
+    summary: 'Get messages with read status',
+    description: 'Gets all messages in a conversation with their read/delivery status'
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Conversation ID',
+    example: 'conv-uuid-123'
+  })
+  @ApiParam({
+    name: 'userId',
+    description: 'User ID',
+    example: 'user-uuid-1'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns messages with read status information'
+  })
+  getMessagesWithStatus(@Param('id') id: string, @Param('userId') userId: string) {
+    return this.chatService.getMessagesWithReadStatus(id, userId);
   }
 }

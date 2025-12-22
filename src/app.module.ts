@@ -6,21 +6,27 @@ import { PrismaModule } from './prisma/prisma.module';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { ChatModule } from './chat/chat.module';
-
-
+import { PostModule } from './post/post.module';
+import { AdminModule } from './admin/admin.module';
+import { CommentModule } from './comment/comment.module';
+import { UploadModule } from './upload/upload.module';
 
 @Module({
   imports: [
-    UsersModule, 
+    UsersModule,
     PrismaModule,
     ConfigModule.forRoot({
       isGlobal: true,
     }),
     AuthModule,
     ChatModule,
-
+    PostModule,
+    AdminModule,
+    CommentModule,
+    UploadModule,
   ],
   controllers: [AppController],
   providers: [AppService],
-})  
-export class AppModule {}
+})
+export class AppModule { }
+

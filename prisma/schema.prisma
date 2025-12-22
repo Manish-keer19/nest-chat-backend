@@ -9,49 +9,196 @@ datasource db {
 }
 
 model User {
-  id                 String             @id @default(uuid())
-  username           String             @unique
-  email              String             @unique
-  password           String
-  role               Role               @default(USER)
-  ownedConversations Conversation[]     @relation("GroupOwner")
-  conversations      ConversationUser[]
-  messages           Message[]
+  id                String             @id @default(uuid())
+  username          String             @unique
+  email             String             @unique
+  password          String
+  avatarUrl         String?
+  bio               String?
+  role              Role               @default(USER)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  deletedAt         DateTime?
+  comments          Comment[]
+  ownedGroups       Conversation[]     @relation("GroupOwner")
+  conversations     ConversationUser[]
+  conversationReads ConversationRead[]
+  followers         Follow[]           @relation("UserFollowers")
+  following         Follow[]           @relation("UserFollowing")
+  likes             Like[]
+  messages          Message[]
+  messageReads      MessageRead[]
+  posts             Post[]
+
+  @@index([username])
+  @@index([deletedAt])
+}
+
+model Follow {
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+  follower    User     @relation("UserFollowers", fields: [followerId], references: [id])
+  following   User     @relation("UserFollowing", fields: [followingId], references: [id])
+
+  @@id([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
 }
 
 model Conversation {
-  id        String             @id @default(uuid())
-  name      String?
-  isGroup   Boolean            @default(false)
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
-  ownerId   String?
-  owner     User?              @relation("GroupOwner", fields: [ownerId], references: [id])
-  users     ConversationUser[]
-  messages  Message[]
+  id                String             @id @default(uuid())
+  name              String?
+  type              ConversationType   @default(PRIVATE)
+  ownerId           String?
+  isGroup           Boolean?
+  lastMessageId     String?            @unique
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  deletedAt         DateTime?
+  owner             User?              @relation("GroupOwner", fields: [ownerId], references: [id])
+  users             ConversationUser[]
+  conversationReads ConversationRead[]
+  messages          Message[]          @relation("ChatMessages")
+
+  @@index([ownerId])
 }
 
 model ConversationUser {
-  id             String       @id @default(uuid())
   conversationId String
   userId         String
+  joinedAt       DateTime     @default(now())
   conversation   Conversation @relation(fields: [conversationId], references: [id])
   user           User         @relation(fields: [userId], references: [id])
 
-  @@unique([conversationId, userId])
+  @@id([conversationId, userId])
 }
 
 model Message {
-  id             String       @id @default(uuid())
-  text           String
-  senderId       String
+  id             String        @id @default(uuid())
   conversationId String
-  createdAt      DateTime     @default(now())
-  conversation   Conversation @relation(fields: [conversationId], references: [id])
-  sender         User         @relation(fields: [senderId], references: [id])
+  senderId       String
+  content        String?
+  createdAt      DateTime      @default(now())
+  deletedAt      DateTime?
+  attachments    Attachment[]
+  conversation   Conversation  @relation("ChatMessages", fields: [conversationId], references: [id])
+  sender         User          @relation(fields: [senderId], references: [id])
+  reads          MessageRead[]
+
+  @@index([conversationId, createdAt])
+}
+
+model MessageRead {
+  messageId   String
+  userId      String
+  deliveredAt DateTime? // Set when message is delivered to user's device
+  readAt      DateTime? // Set when user actually reads the message
+  message     Message   @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, userId])
+  @@index([userId, readAt]) // Optimize queries for user's read messages
+  @@index([userId, deliveredAt]) // Optimize queries for user's delivered messages
+}
+
+// Track last read message per user per conversation for efficient unread counts
+model ConversationRead {
+  conversationId    String
+  userId            String
+  lastReadMessageId String?
+  lastReadAt        DateTime     @default(now())
+  conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+  @@index([userId, lastReadAt])
+}
+
+model Post {
+  id          String       @id @default(uuid())
+  title       String
+  content     String
+  authorId    String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+  attachments Attachment[]
+  comments    Comment[]
+  likes       Like[]
+  author      User         @relation(fields: [authorId], references: [id])
+  stats       PostStats?
+
+  @@index([authorId, createdAt])
+}
+
+model Attachment {
+  id        String    @id @default(uuid())
+  url       String
+  key       String
+  type      MediaType
+  mimeType  String
+  size      Int
+  postId    String?
+  messageId String?
+  createdAt DateTime  @default(now())
+  message   Message?  @relation(fields: [messageId], references: [id])
+  post      Post?     @relation(fields: [postId], references: [id])
+
+  @@index([postId])
+  @@index([messageId])
+}
+
+model Comment {
+  id        String    @id @default(uuid())
+  text      String
+  postId    String
+  userId    String
+  parentId  String?
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+  parent    Comment?  @relation("CommentTree", fields: [parentId], references: [id])
+  replies   Comment[] @relation("CommentTree")
+  post      Post      @relation(fields: [postId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@index([postId, createdAt])
+  @@index([parentId])
+}
+
+model Like {
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+  post      Post     @relation(fields: [postId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@id([postId, userId])
+}
+
+model PostStats {
+  postId        String   @id
+  likeCount     Int      @default(0)
+  commentCount  Int      @default(0)
+  viewCount     Int      @default(0)
+  score         Float    @default(0)
+  lastUpdatedAt DateTime @updatedAt
+  post          Post     @relation(fields: [postId], references: [id])
 }
 
 enum Role {
   USER
   ADMIN
+}
+
+enum ConversationType {
+  PRIVATE
+  GROUP
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  FILE
+  AUDIO
 }
