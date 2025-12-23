@@ -4,6 +4,8 @@ npm-debug.log
 .env
 .env.local
 .env.*.local
+.env.development
+.env.test
 .git
 .gitignore
 README.md
@@ -12,3 +14,14 @@ README.md
 coverage
 .DS_Store
 *.log
+*.md
+.prettierrc
+.eslintrc.js
+eslint.config.mjs
+test
+*.spec.ts
+*.test.ts
+.github
+docker-compose*.yml
+Dockerfile*
+.dockerignore
