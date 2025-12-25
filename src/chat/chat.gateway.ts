@@ -9,15 +9,72 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { ChatService } from './chat.service';
+import { OnGatewayConnection, OnGatewayDisconnect } from '@nestjs/websockets';
+import { UsersService } from '../users/users.service';
+import { JwtService } from '@nestjs/jwt';
 
 @WebSocketGateway({
   cors: { origin: '*' },
 })
-export class ChatGateway {
+export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
-  constructor(private chatService: ChatService) { }
+  constructor(
+    private chatService: ChatService,
+    private usersService: UsersService,
+    private jwtService: JwtService
+  ) { }
+
+  async handleConnection(client: Socket) {
+    try {
+      // Authenticate user from token in query or auth header
+      const token = client.handshake.auth.token || client.handshake.headers.authorization?.split(' ')[1];
+      if (!token) {
+        // client.disconnect(); // Optional: Strict auth
+        return;
+      }
+
+      const payload = this.jwtService.verify(token);
+      const userId = payload.sub;
+
+      client.data.userId = userId;
+      client.data.username = payload.username; // Or fetch from DB if needed
+
+      // Set status to online
+      await this.usersService.setOnlineStatus(userId, true);
+
+      // Broadcast online status
+      this.server.emit('user-presence-update', {
+        userId,
+        isOnline: true,
+        lastSeen: null
+      });
+
+      console.log(`User connected: ${userId}`);
+
+    } catch (e) {
+      console.error('Connection auth failed', e);
+      // client.disconnect();
+    }
+  }
+
+  async handleDisconnect(client: Socket) {
+    const userId = client.data.userId;
+    if (userId) {
+      // Set status to offline
+      await this.usersService.setOnlineStatus(userId, false);
+
+      // Broadcast offline status
+      this.server.emit('user-presence-update', {
+        userId,
+        isOnline: false,
+        lastSeen: new Date()
+      });
+
+      console.log(`User disconnected: ${userId}`);
+    }
+  }
 
   @SubscribeMessage('join')
   handleJoin(

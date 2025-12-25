@@ -21,6 +21,8 @@ model User {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   deletedAt         DateTime?
+  isOnline          Boolean            @default(false)
+  lastSeen          DateTime?
   comments          Comment[]
   ownedGroups       Conversation[]     @relation("GroupOwner")
   conversations     ConversationUser[]
