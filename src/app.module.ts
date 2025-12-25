@@ -10,6 +10,7 @@ import { PostModule } from './post/post.module';
 import { AdminModule } from './admin/admin.module';
 import { CommentModule } from './comment/comment.module';
 import { UploadModule } from './upload/upload.module';
+import { CallModule } from './call/call.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { UploadModule } from './upload/upload.module';
     AdminModule,
     CommentModule,
     UploadModule,
+    CallModule,
   ],
   controllers: [AppController],
   providers: [AppService],

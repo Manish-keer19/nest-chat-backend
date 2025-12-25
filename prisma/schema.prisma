@@ -31,6 +31,8 @@ model User {
   messages          Message[]
   messageReads      MessageRead[]
   posts             Post[]
+  initiatedCalls    Call[]             @relation("CallInitiator")
+  callParticipants  CallParticipant[]
 
   @@index([username])
   @@index([deletedAt])
@@ -64,6 +66,7 @@ model Conversation {
   users             ConversationUser[]
   conversationReads ConversationRead[]
   messages          Message[]          @relation("ChatMessages")
+  calls             Call[]
 
   @@index([ownerId])
 }
@@ -215,4 +218,105 @@ enum MediaType {
   VIDEO
   FILE
   AUDIO
+}
+
+// ==================== CALLING SYSTEM MODELS ====================
+
+model Call {
+  id             String     @id @default(uuid())
+  conversationId String? // Link to existing conversation (optional)
+  callType       CallType // AUDIO_1TO1, VIDEO_1TO1, AUDIO_GROUP, VIDEO_GROUP
+  initiatorId    String // User who started the call
+  status         CallStatus @default(CALLING)
+  startedAt      DateTime   @default(now())
+  endedAt        DateTime?
+  duration       Int? // Duration in seconds
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  // Relations
+  initiator    User              @relation("CallInitiator", fields: [initiatorId], references: [id])
+  conversation Conversation?     @relation(fields: [conversationId], references: [id])
+  participants CallParticipant[]
+  events       CallEvent[]
+
+  @@index([conversationId])
+  @@index([initiatorId])
+  @@index([status])
+  @@index([startedAt])
+}
+
+model CallParticipant {
+  id         String                @id @default(uuid())
+  callId     String
+  userId     String
+  joinedAt   DateTime? // When they joined
+  leftAt     DateTime? // When they left
+  status     CallParticipantStatus @default(INVITED)
+  isMuted    Boolean               @default(false)
+  isVideoOff Boolean               @default(false)
+
+  // Relations
+  call Call @relation(fields: [callId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([callId, userId])
+  @@index([callId])
+  @@index([userId])
+}
+
+model CallEvent {
+  id        String        @id @default(uuid())
+  callId    String
+  userId    String? // User who triggered event
+  eventType CallEventType
+  metadata  Json? // Additional event data
+  createdAt DateTime      @default(now())
+
+  // Relations
+  call Call @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  @@index([callId])
+  @@index([createdAt])
+}
+
+enum CallType {
+  AUDIO_1TO1
+  VIDEO_1TO1
+  AUDIO_GROUP
+  VIDEO_GROUP
+}
+
+enum CallStatus {
+  CALLING // Initiating call
+  RINGING // Ringing on recipient side
+  ACTIVE // Call in progress
+  ENDED // Call ended normally
+  REJECTED // Call rejected by recipient
+  MISSED // Call not answered
+  FAILED // Technical failure
+}
+
+enum CallParticipantStatus {
+  INVITED // Invited but not responded
+  RINGING // Phone is ringing
+  JOINED // Actively in call
+  LEFT // Left the call
+  REJECTED // Rejected the call
+  MISSED // Didn't answer
+}
+
+enum CallEventType {
+  CALL_INITIATED
+  CALL_RINGING
+  CALL_ACCEPTED
+  CALL_REJECTED
+  CALL_ENDED
+  PARTICIPANT_JOINED
+  PARTICIPANT_LEFT
+  PARTICIPANT_MUTED
+  PARTICIPANT_UNMUTED
+  VIDEO_ENABLED
+  VIDEO_DISABLED
+  CALL_FAILED
 }

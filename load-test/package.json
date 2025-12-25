@@ -1,0 +1,20 @@
+{
+  "name": "chat-load-testing",
+  "version": "1.0.0",
+  "description": "Load testing tools for the chat system",
+  "scripts": {
+    "test:light": "ts-node simple-load-test.ts light",
+    "test:moderate": "ts-node simple-load-test.ts moderate",
+    "test:heavy": "ts-node simple-load-test.ts heavy",
+    "test:stress": "ts-node simple-load-test.ts stress",
+    "monitor": "ts-node system-monitor.ts"
+  },
+  "dependencies": {
+    "socket.io-client": "^4.7.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}

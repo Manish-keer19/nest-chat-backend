@@ -151,7 +151,7 @@ export class ChatService {
 
   // Save message to DB
   async saveMessage(conversationId: string, senderId: string, text: string, attachments?: any[], replyToId?: string) {
-    console.log("text is in savemesage",)
+    // console.log("text is in savemesage",)
     return await this.prisma.message.create({
       data: {
         content: text,
