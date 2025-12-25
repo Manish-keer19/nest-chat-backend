@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Put,
   Body,
   Param,
@@ -8,7 +9,7 @@ import {
   Req,
   UseInterceptors,
   UploadedFile,
-  BadRequestException
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -84,5 +85,26 @@ export class UsersController {
 
     // Update user avatar URL in database
     return await this.usersService.updateAvatar(req.user.sub, result.url);
+  }
+  @Post('presence')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get presence status for multiple users' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        userIds: {
+          type: 'array',
+          items: { type: 'string' },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'User presence status' })
+  async getUsersPresence(@Body() body: { userIds: string[] }) {
+    if (!body.userIds || !Array.isArray(body.userIds)) {
+      throw new BadRequestException('userIds array is required');
+    }
+    return await this.usersService.getUsersPresence(body.userIds);
   }
 }

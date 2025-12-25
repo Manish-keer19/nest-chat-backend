@@ -28,21 +28,36 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async handleConnection(client: Socket) {
     try {
+      console.log(`[ChatGateway] Connection attempt: ${client.id}`);
+
       // Authenticate user from token in query or auth header
       const token = client.handshake.auth.token || client.handshake.headers.authorization?.split(' ')[1];
+
       if (!token) {
+        console.warn(`[ChatGateway] No token for client: ${client.id}`);
         // client.disconnect(); // Optional: Strict auth
         return;
       }
 
-      const payload = this.jwtService.verify(token);
+      // Verify token - explicitly pass secret ensures it works even if module config is quirky
+      let payload;
+      try {
+        payload = this.jwtService.verify(token, { secret: process.env.JWT_ACCESS_SECRET });
+      } catch (verifyErr) {
+        console.error(`[ChatGateway] Token verification failed for ${client.id}:`, verifyErr.message);
+        return;
+      }
+
       const userId = payload.sub;
 
       client.data.userId = userId;
       client.data.username = payload.username; // Or fetch from DB if needed
 
+      console.log(`[ChatGateway] Authenticated user: ${userId} (${payload.username})`);
+
       // Set status to online
       await this.usersService.setOnlineStatus(userId, true);
+      console.log(`[ChatGateway] DB Status updated to online for ${userId}`);
 
       // Broadcast online status
       this.server.emit('user-presence-update', {
@@ -50,11 +65,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         isOnline: true,
         lastSeen: null
       });
-
-      console.log(`User connected: ${userId}`);
+      console.log(`[ChatGateway] Broadcasted presence update for ${userId}`);
 
     } catch (e) {
-      console.error('Connection auth failed', e);
+      console.error('[ChatGateway] Connection error', e);
       // client.disconnect();
     }
   }

@@ -102,4 +102,25 @@ export class UsersService {
       },
     });
   }
+
+  async getUsersPresence(userIds: string[]) {
+    const users = await this.prisma.user.findMany({
+      where: {
+        id: { in: userIds },
+      },
+      select: {
+        id: true,
+        isOnline: true,
+        lastSeen: true,
+      },
+    });
+
+    return users.reduce((acc, user) => {
+      acc[user.id] = {
+        isOnline: user.isOnline,
+        lastSeen: user.lastSeen,
+      };
+      return acc;
+    }, {});
+  }
 }
