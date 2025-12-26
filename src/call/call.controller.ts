@@ -28,4 +28,11 @@ export class CallController {
     async getCall(@Param('callId') callId: string) {
         return this.callService.getCall(callId);
     }
+    /**
+     * Get active call for a conversation
+     */
+    @Get('conversation/:conversationId/active')
+    async getActiveCallForConversation(@Param('conversationId') conversationId: string) {
+        return this.callService.getActiveCallForConversation(conversationId);
+    }
 }

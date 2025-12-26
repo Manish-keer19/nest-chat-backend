@@ -536,4 +536,35 @@ export class CallService {
 
         return { success: true };
     }
+    /**
+     * Get active call for a conversation
+     */
+    async getActiveCallForConversation(conversationId: string) {
+        const call = await this.prisma.call.findFirst({
+            where: {
+                conversationId,
+                status: {
+                    in: [CallStatus.CALLING, CallStatus.RINGING, CallStatus.ACTIVE],
+                },
+            },
+            include: {
+                initiator: {
+                    select: { id: true, username: true, avatarUrl: true },
+                },
+                participants: {
+                    where: {
+                        status: CallParticipantStatus.JOINED,
+                    },
+                    include: {
+                        user: {
+                            select: { id: true, username: true, avatarUrl: true },
+                        },
+                    },
+                },
+            },
+            orderBy: { startedAt: 'desc' },
+        });
+
+        return call;
+    }
 }
