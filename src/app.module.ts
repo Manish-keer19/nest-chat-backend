@@ -11,6 +11,7 @@ import { AdminModule } from './admin/admin.module';
 import { CommentModule } from './comment/comment.module';
 import { UploadModule } from './upload/upload.module';
 import { CallModule } from './call/call.module';
+import { RandomChatModule } from './random-chat/random-chat.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { CallModule } from './call/call.module';
     CommentModule,
     UploadModule,
     CallModule,
+    RandomChatModule,
   ],
   controllers: [AppController],
   providers: [AppService],
