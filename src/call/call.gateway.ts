@@ -30,6 +30,7 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // Track active calls and participants
     private activeCalls = new Map<string, Set<string>>(); // callId -> Set of socketIds
+    private userCalls = new Map<string, string>(); // userId -> callId
 
     constructor(private callService: CallService) { }
 
@@ -40,19 +41,46 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
     handleDisconnect(client: SocketWithUser) {
         console.log(`Client disconnected from call namespace: ${client.id}`);
 
-        // Clean up any active calls this client was in
-        this.activeCalls.forEach((participants, callId) => {
-            if (participants.has(client.id)) {
-                participants.delete(client.id);
+        if (client.data.userId) {
+            this.cleanupUserFromCall(client.data.userId, client.id);
+        }
+    }
 
-                // If user was in a call, notify others
-                if (client.data.userId) {
-                    this.server.to(callId).emit('participant:disconnected', {
-                        userId: client.data.userId,
-                    });
+    private cleanupUserFromCall(userId: string, socketId?: string) {
+        const callId = this.userCalls.get(userId);
+        if (callId) {
+            const participants = this.activeCalls.get(callId);
+            if (participants) {
+                // If specific socket provided, remove only that. Otherwise remove user completely?
+                // For simplicity, if we are cleaning up the user, we assume they are leaving.
+                if (socketId) {
+                    participants.delete(socketId);
+                } else {
+                    // Try to find socketId if possible, or just accept we track by userId mostly now?
+                    // activeCalls tracks socketIds. We need to maintain that for broadcasting.
+                }
+
+                this.server.to(callId).emit('participant:disconnected', {
+                    userId,
+                });
+
+                // If call becomes empty, we might want to cleanup?
+                if (participants.size === 0) {
+                    this.activeCalls.delete(callId);
                 }
             }
-        });
+            this.userCalls.delete(userId);
+        } else if (socketId) {
+            // Fallback: iterate activeCalls just in case activeCalls has the socket but userCalls missed it
+            this.activeCalls.forEach((participants, cId) => {
+                if (participants.has(socketId)) {
+                    participants.delete(socketId);
+                    this.server.to(cId).emit('participant:disconnected', {
+                        userId,
+                    });
+                }
+            });
+        }
     }
 
     /**
@@ -93,6 +121,9 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 return { error: 'User not identified' };
             }
 
+            // Cleanup any existing call for this user
+            this.cleanupUserFromCall(initiatorId, client.id);
+
             // Create call in database
             const call = await this.callService.initiateCall(
                 initiatorId,
@@ -104,6 +135,7 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
             // Join call room
             client.join(call.id);
             this.activeCalls.set(call.id, new Set([client.id]));
+            this.userCalls.set(initiatorId, call.id);
 
             // Notify recipients
             recipientIds.forEach((recipientId) => {
@@ -152,6 +184,9 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 return { error: 'User not identified' };
             }
 
+            // Cleanup any existing call for this user
+            this.cleanupUserFromCall(userId, client.id);
+
             await this.callService.acceptCall(callId, userId);
 
             // Join call room
@@ -160,6 +195,7 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 this.activeCalls.set(callId, new Set());
             }
             this.activeCalls.get(callId).add(client.id);
+            this.userCalls.set(userId, callId);
 
             // Notify all participants
             this.server.to(callId).emit('call:accepted', {
@@ -231,7 +267,16 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
             });
 
             // Clean up
-            this.activeCalls.delete(callId);
+            // Instead of deleting callId immediately, we should let participants leave?
+            // But if the call is ended for everyone (e.g. 1-to-1), we should clean up.
+            // For now, let's just clean up the user who ended it from our tracking, 
+            // but `handleEndCall` usually implies ending for everyone in 1-to-1?
+            // The service returns success. The event is emitted.
+
+            // If it is 1-to-1, we should probably clear the call from activeCalls map?
+            // But let's stick to cleaning up the user who requested it.
+            this.cleanupUserFromCall(userId, client.id);
+            this.userCalls.delete(userId); // Redundant if cleanup works, but safe.
 
             return { success: true, duration: result.duration };
         } catch (error) {
@@ -399,6 +444,9 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 return { error: 'User not identified' };
             }
 
+            // Cleanup any existing call for this user
+            this.cleanupUserFromCall(userId, client.id);
+
             await this.callService.joinGroupCall(callId, userId);
 
             // Join call room
@@ -407,6 +455,7 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 this.activeCalls.set(callId, new Set());
             }
             this.activeCalls.get(callId).add(client.id);
+            this.userCalls.set(userId, callId);
 
             // Get current participants
             const call = await this.callService.getCall(callId);
@@ -455,7 +504,7 @@ export class CallGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
             // Leave call room
             client.leave(callId);
-            this.activeCalls.get(callId)?.delete(client.id);
+            this.cleanupUserFromCall(userId, client.id);
 
             // Notify all participants
             this.server.to(callId).emit('group-call:participant-left', {

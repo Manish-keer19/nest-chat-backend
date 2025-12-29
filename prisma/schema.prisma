@@ -35,8 +35,7 @@ model User {
   posts                    Post[]
   initiatedCalls           Call[]                  @relation("CallInitiator")
   callParticipants         CallParticipant[]
-  randomConnectionsAsUser1 RandomVideoConnection[] @relation("RandomConnectionsAsUser1")
-  randomConnectionsAsUser2 RandomVideoConnection[] @relation("RandomConnectionsAsUser2")
+
 
   @@index([username])
   @@index([deletedAt])
@@ -325,18 +324,4 @@ enum CallEventType {
   CALL_FAILED
 }
 
-model RandomVideoConnection {
-  id        String    @id @default(uuid())
-  user1Id   String
-  user2Id   String
-  startedAt DateTime  @default(now())
-  endedAt   DateTime?
-  duration  Int? // Duration in seconds
 
-  user1 User @relation("RandomConnectionsAsUser1", fields: [user1Id], references: [id])
-  user2 User @relation("RandomConnectionsAsUser2", fields: [user2Id], references: [id])
-
-  @@index([user1Id])
-  @@index([user2Id])
-  @@index([startedAt])
-}
