@@ -9,33 +9,32 @@ datasource db {
 }
 
 model User {
-  id                       String                  @id @default(uuid())
-  username                 String                  @unique
-  email                    String                  @unique
-  password                 String? // Optional for OAuth users
-  avatarUrl                String?
-  bio                      String?
-  role                     Role                    @default(USER)
-  provider                 AuthProvider?           @default(LOCAL) // OAuth provider
-  providerId               String? // OAuth provider user ID
-  createdAt                DateTime                @default(now())
-  updatedAt                DateTime                @updatedAt
-  deletedAt                DateTime?
-  isOnline                 Boolean                 @default(false)
-  lastSeen                 DateTime?
-  comments                 Comment[]
-  ownedGroups              Conversation[]          @relation("GroupOwner")
-  conversations            ConversationUser[]
-  conversationReads        ConversationRead[]
-  followers                Follow[]                @relation("UserFollowers")
-  following                Follow[]                @relation("UserFollowing")
-  likes                    Like[]
-  messages                 Message[]
-  messageReads             MessageRead[]
-  posts                    Post[]
-  initiatedCalls           Call[]                  @relation("CallInitiator")
-  callParticipants         CallParticipant[]
-
+  id                String             @id @default(uuid())
+  username          String             @unique
+  email             String             @unique
+  password          String? // Optional for OAuth users
+  avatarUrl         String?
+  bio               String?
+  role              Role               @default(USER)
+  provider          AuthProvider?      @default(LOCAL) // OAuth provider
+  providerId        String? // OAuth provider user ID
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  deletedAt         DateTime?
+  isOnline          Boolean            @default(false)
+  lastSeen          DateTime?
+  comments          Comment[]
+  ownedGroups       Conversation[]     @relation("GroupOwner")
+  conversations     ConversationUser[]
+  conversationReads ConversationRead[]
+  followers         Follow[]           @relation("UserFollowers")
+  following         Follow[]           @relation("UserFollowing")
+  likes             Like[]
+  messages          Message[]
+  messageReads      MessageRead[]
+  posts             Post[]
+  initiatedCalls    Call[]             @relation("CallInitiator")
+  callParticipants  CallParticipant[]
 
   @@index([username])
   @@index([deletedAt])
@@ -323,5 +322,3 @@ enum CallEventType {
   VIDEO_DISABLED
   CALL_FAILED
 }
-
-
