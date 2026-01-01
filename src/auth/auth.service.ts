@@ -47,6 +47,7 @@ export class AuthService {
 
     const data = await this.prismaService.$queryRaw`
       select * from "User" where email = ${dto.email}`
+      console.log("data is",data);
 
     const user = data[0];
 
