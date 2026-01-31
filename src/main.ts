@@ -15,7 +15,7 @@ async function bootstrap() {
   });
 
   app.enableCors({
-    origin: '*',
+    origin: 'https://nest-chat-frontend.vercel.app',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });

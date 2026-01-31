@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Delete,
   Body,
   Param,
   UseGuards,
@@ -106,5 +107,49 @@ export class UsersController {
       throw new BadRequestException('userIds array is required');
     }
     return await this.usersService.getUsersPresence(body.userIds);
+  }
+
+  @Delete('testmail')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Delete all test users with @testmail.com email addresses',
+    description: 'Removes all users with @testmail.com emails and all their associated data including posts, messages, conversations, calls, and follows. This is useful for cleaning up test data.'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Test users deleted successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+        message: { type: 'string' },
+        deletedUsers: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              username: { type: 'string' },
+              email: { type: 'string' }
+            }
+          }
+        },
+        stats: {
+          type: 'object',
+          properties: {
+            users: { type: 'number' },
+            posts: { type: 'number' },
+            comments: { type: 'number' },
+            likes: { type: 'number' },
+            attachments: { type: 'number' },
+            messages: { type: 'number' },
+            conversations: { type: 'number' },
+            calls: { type: 'number' },
+          }
+        }
+      }
+    }
+  })
+  async deleteTestmailUsers() {
+    return await this.usersService.deleteTestmailUsers();
   }
 }
